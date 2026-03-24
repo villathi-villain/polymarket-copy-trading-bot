@@ -47,5 +47,12 @@ jest-test-results.json
 .prettiercache
 
 .yarn
-simulation_results
-trader_data_cache
+# Bot output directories (may contain trading strategies and sensitive data)
+simulation_results/
+trader_data_cache/
+top_traders_results/
+trader_scan_results/
+trader_analysis_results/
+trader_analysis/
+audit_results/
+strategy_factory_results/

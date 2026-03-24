@@ -137,11 +137,17 @@ async function computeGnosisSafeAddress() {
         console.log('   ⚠️  Error searching via blockchain\n');
     }
 
-    // Alternative method - check specific address
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-    console.log('📋 Checking known address 0xd62531...\n');
+    // Alternative method - check specific address from env or skip
+    const suspectAddress = process.env.SUSPECT_PROXY_ADDRESS || '';
 
-    const suspectAddress = '0xd62531bc536bff72394fc5ef715525575787e809';
+    if (!suspectAddress) {
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+        console.log('ℹ️  Set SUSPECT_PROXY_ADDRESS in .env to check a specific proxy address\n');
+    }
+
+    if (suspectAddress) {
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+    console.log(`📋 Checking suspect address ${suspectAddress.slice(0, 10)}...\n`);
 
     try {
         const provider = new ethers.providers.JsonRpcProvider(RPC_URL);
@@ -231,6 +237,7 @@ async function computeGnosisSafeAddress() {
     console.log(`  and PROXY_WALLET=${suspectAddress}\n`);
 
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+    } // end if (suspectAddress)
 }
 
 computeGnosisSafeAddress().catch(console.error);

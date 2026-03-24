@@ -116,8 +116,6 @@ const SEED_TRADERS = [
     '0x6bab41a0dc40d6dd4c1a915b8c01969479fd1292',
     '0xa4b366ad22fc0d06f1e934ff468e8922431a87b8',
     // Add more active traders from Polymarket leaderboard
-    '0x000000000000000000000000000000000000dead', // Example - replace with real addresses
-    '0x000000000000000000000000000000000000beef', // Example - replace with real addresses
 ];
 
 // Helper function to validate addresses in parallel
@@ -319,9 +317,7 @@ async function discoverTradersFromRandomActivities(): Promise<Set<string>> {
         // STEP 4: Use seed traders as fallback/supplement
         console.log(c.bold('📡 STEP 3: Bootstrapping from seed traders...\n'));
 
-        for (const seedTrader of SEED_TRADERS.filter(
-            (t) => !t.includes('dead') && !t.includes('beef')
-        )) {
+        for (const seedTrader of SEED_TRADERS) {
             discoveredTraders.add(seedTrader.toLowerCase());
         }
 
@@ -412,9 +408,7 @@ async function discoverTradersFromRandomActivities(): Promise<Set<string>> {
 
         // Fallback to seed traders
         SEED_TRADERS.forEach((t) => {
-            if (!t.includes('dead') && !t.includes('beef')) {
-                discoveredTraders.add(t.toLowerCase());
-            }
+            discoveredTraders.add(t.toLowerCase());
         });
 
         return discoveredTraders;
