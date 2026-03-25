@@ -8,10 +8,6 @@ import { calculateOrderSize, getTradeMultiplier } from '../config/copyStrategy';
 const RETRY_LIMIT = ENV.RETRY_LIMIT;
 const COPY_STRATEGY_CONFIG = ENV.COPY_STRATEGY_CONFIG;
 
-// Legacy parameters (for backward compatibility in SELL logic)
-const TRADE_MULTIPLIER = ENV.TRADE_MULTIPLIER;
-const COPY_PERCENTAGE = ENV.COPY_PERCENTAGE;
-
 // Polymarket minimum order sizes
 const MIN_ORDER_SIZE_USD = 1.0; // Minimum order size in USD for BUY orders
 const MIN_ORDER_SIZE_TOKENS = 1.0; // Minimum order size in tokens for SELL/MERGE orders

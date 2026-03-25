@@ -1,6 +1,5 @@
 import axios from 'axios';
 import { ENV } from '../config/env';
-import getMyBalance from '../utils/getMyBalance';
 
 // Simple console colors without chalk
 const colors = {
@@ -23,6 +22,19 @@ interface Trade {
     usdcSize: number;
     size: number;
     outcome: string;
+}
+
+interface TradeApiResponse {
+    id: string;
+    timestamp: number;
+    slug?: string;
+    market?: string;
+    asset: string;
+    side: 'BUY' | 'SELL';
+    price: number;
+    usdcSize: number;
+    size: number;
+    outcome?: string;
 }
 
 interface Position {
@@ -108,10 +120,10 @@ async function fetchBatch(offset: number, limit: number, sinceTimestamp: number)
         }
     );
 
-    const trades: Trade[] = response.data.map((item: any) => ({
+    const trades: Trade[] = (response.data as TradeApiResponse[]).map((item) => ({
         id: item.id,
         timestamp: item.timestamp,
-        market: item.slug || item.market,
+        market: item.slug || item.market || '',
         asset: item.asset,
         side: item.side,
         price: item.price,

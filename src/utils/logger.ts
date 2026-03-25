@@ -2,6 +2,17 @@ import chalk from 'chalk';
 import * as fs from 'fs';
 import * as path from 'path';
 
+interface TradeDetails {
+    asset?: string;
+    side?: string;
+    amount?: number;
+    price?: number;
+    slug?: string;
+    eventSlug?: string;
+    title?: string;
+    transactionHash?: string;
+}
+
 class Logger {
     private static logsDir = path.join(process.cwd(), 'logs');
     private static currentLogFile = '';
@@ -24,7 +35,7 @@ class Logger {
             const timestamp = new Date().toISOString();
             const logEntry = `[${timestamp}] ${message}\n`;
             fs.appendFileSync(logFile, logEntry, 'utf8');
-        } catch (error) {
+        } catch {
             // Silently fail to avoid infinite loops
         }
     }
@@ -70,7 +81,7 @@ class Logger {
         this.writeToFile(`ERROR: ${message}`);
     }
 
-    static trade(traderAddress: string, action: string, details: any) {
+    static trade(traderAddress: string, action: string, details: TradeDetails) {
         console.log('\n' + chalk.magenta('─'.repeat(70)));
         console.log(chalk.magenta.bold('📊 NEW TRADE DETECTED'));
         console.log(chalk.gray(`Trader: ${this.formatAddress(traderAddress)}`));

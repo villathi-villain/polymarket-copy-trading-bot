@@ -3,6 +3,12 @@ import { getUserActivityModel, getUserPositionModel } from '../models/userHistor
 import fetchData from '../utils/fetchData';
 import Logger from '../utils/logger';
 
+interface PositionData {
+    currentValue?: number | null;
+    initialValue?: number | null;
+    percentPnl?: number | null;
+}
+
 const USER_ADDRESSES = ENV.USER_ADDRESSES;
 const TOO_OLD_TIMESTAMP = ENV.TOO_OLD_TIMESTAMP;
 const FETCH_INTERVAL = ENV.FETCH_INTERVAL;
@@ -41,7 +47,7 @@ const init = async () => {
             let totalValue = 0;
             let initialValue = 0;
             let weightedPnl = 0;
-            myPositions.forEach((pos: any) => {
+            (myPositions as PositionData[]).forEach((pos) => {
                 const value = pos.currentValue || 0;
                 const initial = pos.initialValue || 0;
                 const pnl = pos.percentPnl || 0;
@@ -52,8 +58,8 @@ const init = async () => {
             const myOverallPnl = totalValue > 0 ? weightedPnl / totalValue : 0;
 
             // Get top 5 positions by profitability (PnL)
-            const myTopPositions = myPositions
-                .sort((a: any, b: any) => (b.percentPnl || 0) - (a.percentPnl || 0))
+            const myTopPositions = (myPositions as PositionData[])
+                .sort((a, b) => (b.percentPnl || 0) - (a.percentPnl || 0))
                 .slice(0, 5);
 
             Logger.clearLine();
@@ -76,9 +82,9 @@ const init = async () => {
 
     // Show current positions count with details for traders you're copying
     const positionCounts: number[] = [];
-    const positionDetails: any[][] = [];
+    const positionDetails: PositionData[][] = [];
     const profitabilities: number[] = [];
-    for (const { address, UserPosition } of userModels) {
+    for (const { UserPosition } of userModels) {
         const positions = await UserPosition.find().exec();
         positionCounts.push(positions.length);
 

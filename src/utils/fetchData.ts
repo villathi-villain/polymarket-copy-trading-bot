@@ -2,6 +2,7 @@ import axios, { AxiosError } from 'axios';
 import { ENV } from '../config/env';
 
 // Create proxy agent if PROXY_URL is configured
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let proxyAgent: any = undefined;
 const proxyUrl = process.env.PROXY_URL;
 if (proxyUrl) {
@@ -11,7 +12,9 @@ if (proxyUrl) {
         proxyAgent = new SocksProxyAgent(proxyUrl);
         console.log(`✓ Using SOCKS5 proxy: ${proxyUrl}`);
     } catch {
-        console.warn('⚠️  PROXY_URL is set but socks-proxy-agent is not installed. Run: npm install socks-proxy-agent');
+        console.warn(
+            '⚠️  PROXY_URL is set but socks-proxy-agent is not installed. Run: npm install socks-proxy-agent'
+        );
     }
 }
 

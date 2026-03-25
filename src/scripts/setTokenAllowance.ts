@@ -82,9 +82,9 @@ async function setTokenAllowance() {
         } else {
             console.log('❌ Transaction failed!');
         }
-    } catch (error: any) {
-        console.error('❌ Error:', error.message);
-        if (error.code === 'INSUFFICIENT_FUNDS') {
+    } catch (error: unknown) {
+        console.error('❌ Error:', error instanceof Error ? error.message : String(error));
+        if (error instanceof Error && 'code' in error && error.code === 'INSUFFICIENT_FUNDS') {
             console.log('\n⚠️  You need MATIC for gas fees on Polygon!');
         }
     }

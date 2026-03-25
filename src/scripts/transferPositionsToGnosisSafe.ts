@@ -159,9 +159,9 @@ async function transferPositions() {
                 console.log('\n⏳ Pausing 3 seconds...\n');
                 await new Promise((resolve) => setTimeout(resolve, 3000));
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.log(`\n❌ ERROR during transfer:`);
-            console.log(`   ${error.message}\n`);
+            console.log(`   ${error instanceof Error ? error.message : String(error)}\n`);
             failureCount++;
         }
     }
