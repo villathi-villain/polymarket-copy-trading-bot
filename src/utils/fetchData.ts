@@ -1,6 +1,20 @@
 import axios, { AxiosError } from 'axios';
 import { ENV } from '../config/env';
 
+// Create proxy agent if PROXY_URL is configured
+let proxyAgent: any = undefined;
+const proxyUrl = process.env.PROXY_URL;
+if (proxyUrl) {
+    try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { SocksProxyAgent } = require('socks-proxy-agent');
+        proxyAgent = new SocksProxyAgent(proxyUrl);
+        console.log(`✓ Using SOCKS5 proxy: ${proxyUrl}`);
+    } catch {
+        console.warn('⚠️  PROXY_URL is set but socks-proxy-agent is not installed. Run: npm install socks-proxy-agent');
+    }
+}
+
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const isNetworkError = (error: unknown): boolean => {
@@ -33,6 +47,8 @@ const fetchData = async (url: string) => {
                 },
                 // Force IPv4 to avoid IPv6 connectivity issues
                 family: 4,
+                // Use SOCKS5 proxy if configured (for geo-restricted APIs)
+                ...(proxyAgent ? { httpAgent: proxyAgent, httpsAgent: proxyAgent } : {}),
             });
             return response.data;
         } catch (error) {
