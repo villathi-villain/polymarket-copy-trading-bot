@@ -11,7 +11,7 @@ const USER_ADDRESSES = ENV.USER_ADDRESSES;
 const PROXY_WALLET = ENV.PROXY_WALLET;
 const TRADE_AGGREGATION_ENABLED = ENV.TRADE_AGGREGATION_ENABLED;
 const TRADE_AGGREGATION_WINDOW_SECONDS = ENV.TRADE_AGGREGATION_WINDOW_SECONDS;
-const TRADE_AGGREGATION_MIN_TOTAL_USD = 1.0; // Polymarket minimum
+const TRADE_AGGREGATION_MIN_USD = ENV.TRADE_AGGREGATION_MIN_USD; // Configurable minimum for immediate execution
 
 // Create activity models for each user
 const userActivityModels = USER_ADDRESSES.map((address) => ({
@@ -120,13 +120,13 @@ const getReadyAggregatedTrades = (): AggregatedTrade[] => {
 
         // Check if aggregation is ready
         if (timeElapsed >= windowMs) {
-            if (agg.totalUsdcSize >= TRADE_AGGREGATION_MIN_TOTAL_USD) {
+            if (agg.totalUsdcSize >= TRADE_AGGREGATION_MIN_USD) {
                 // Aggregation meets minimum and window passed - ready to execute
                 ready.push(agg);
             } else {
                 // Window passed but total too small - mark individual trades as skipped
                 Logger.info(
-                    `Trade aggregation for ${agg.userAddress} on ${agg.slug || agg.asset}: $${agg.totalUsdcSize.toFixed(2)} total from ${agg.trades.length} trades below minimum ($${TRADE_AGGREGATION_MIN_TOTAL_USD}) - skipping`
+                    `Trade aggregation for ${agg.userAddress} on ${agg.slug || agg.asset}: $${agg.totalUsdcSize.toFixed(2)} total from ${agg.trades.length} trades below minimum ($${TRADE_AGGREGATION_MIN_USD}) - skipping`
                 );
 
                 // Mark all trades in this aggregation as processed (bot: true)
@@ -277,7 +277,7 @@ const tradeExecutor = async (clobClient: ClobClient) => {
     Logger.success(`Trade executor ready for ${USER_ADDRESSES.length} trader(s)`);
     if (TRADE_AGGREGATION_ENABLED) {
         Logger.info(
-            `Trade aggregation enabled: ${TRADE_AGGREGATION_WINDOW_SECONDS}s window, $${TRADE_AGGREGATION_MIN_TOTAL_USD} minimum`
+            `Trade aggregation enabled: ${TRADE_AGGREGATION_WINDOW_SECONDS}s window, $${TRADE_AGGREGATION_MIN_USD} minimum`
         );
     }
 
@@ -296,7 +296,7 @@ const tradeExecutor = async (clobClient: ClobClient) => {
                 // Add trades to aggregation buffer
                 for (const trade of trades) {
                     // Only aggregate BUY trades below minimum threshold
-                    if (trade.side === 'BUY' && trade.usdcSize < TRADE_AGGREGATION_MIN_TOTAL_USD) {
+                    if (trade.side === 'BUY' && trade.usdcSize < TRADE_AGGREGATION_MIN_USD) {
                         Logger.info(
                             `Adding $${trade.usdcSize.toFixed(2)} ${trade.side} trade to aggregation buffer for ${trade.slug || trade.asset}`
                         );

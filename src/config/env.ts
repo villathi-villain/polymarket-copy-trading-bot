@@ -361,6 +361,9 @@ export const ENV = {
         process.env.TRADE_AGGREGATION_WINDOW_SECONDS || '300',
         10
     ), // 5 minutes default
+    TRADE_AGGREGATION_MIN_USD: parseFloat(
+        process.env.TRADE_AGGREGATION_MIN_USD || '5.0'
+    ), // Minimum trade size to trigger immediate execution (smaller trades are aggregated)
     MONGO_URI: process.env.MONGO_URI as string,
     RPC_URL: process.env.RPC_URL as string,
     USDC_CONTRACT_ADDRESS: process.env.USDC_CONTRACT_ADDRESS as string,

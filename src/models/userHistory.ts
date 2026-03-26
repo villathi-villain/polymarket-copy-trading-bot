@@ -67,12 +67,20 @@ const activitySchema = new Schema({
 
 const getUserPositionModel = (walletAddress: string) => {
     const collectionName = `user_positions_${walletAddress}`;
-    return mongoose.model(collectionName, positionSchema, collectionName);
+    // Check if model already exists to avoid OverwriteModelError
+    return (
+        mongoose.models[collectionName] ||
+        mongoose.model(collectionName, positionSchema, collectionName)
+    );
 };
 
 const getUserActivityModel = (walletAddress: string) => {
     const collectionName = `user_activities_${walletAddress}`;
-    return mongoose.model(collectionName, activitySchema, collectionName);
+    // Check if model already exists to avoid OverwriteModelError
+    return (
+        mongoose.models[collectionName] ||
+        mongoose.model(collectionName, activitySchema, collectionName)
+    );
 };
 
 export { getUserActivityModel, getUserPositionModel };

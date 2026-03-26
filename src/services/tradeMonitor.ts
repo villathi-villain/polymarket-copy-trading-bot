@@ -10,7 +10,7 @@ interface PositionData {
 }
 
 const USER_ADDRESSES = ENV.USER_ADDRESSES;
-const TOO_OLD_TIMESTAMP = ENV.TOO_OLD_TIMESTAMP;
+const TOO_OLD_TIMESTAMP_HOURS = ENV.TOO_OLD_TIMESTAMP;
 const FETCH_INTERVAL = ENV.FETCH_INTERVAL;
 
 if (!USER_ADDRESSES || USER_ADDRESSES.length === 0) {
@@ -122,10 +122,14 @@ const fetchTradeData = async () => {
                 continue;
             }
 
+            // Calculate cutoff timestamp (TOO_OLD_TIMESTAMP_HOURS hours ago)
+            // activity.timestamp is in seconds, Date.now() is in milliseconds
+            const cutoffTimestamp = Math.floor(Date.now() / 1000) - TOO_OLD_TIMESTAMP_HOURS * 3600;
+
             // Process each activity
             for (const activity of activities) {
                 // Skip if too old
-                if (activity.timestamp < TOO_OLD_TIMESTAMP) {
+                if (activity.timestamp < cutoffTimestamp) {
                     continue;
                 }
 

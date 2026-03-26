@@ -62,9 +62,16 @@ const createClobClient = async (): Promise<ClobClient> => {
     console.log = function () {};
     console.error = function () {};
 
-    let creds = await clobClient.createApiKey();
-    if (!creds.key) {
-        creds = await clobClient.deriveApiKey();
+    let creds;
+    try {
+        creds = await clobClient.createApiKey();
+        if (!creds.key) {
+            creds = await clobClient.deriveApiKey();
+        }
+    } finally {
+        // Always restore console functions, even if an error occurs
+        console.log = originalConsoleLog;
+        console.error = originalConsoleError;
     }
 
     clobClient = new ClobClient(
@@ -75,10 +82,6 @@ const createClobClient = async (): Promise<ClobClient> => {
         signatureType,
         isProxySafe ? (PROXY_WALLET as string) : undefined
     );
-
-    // Restore console functions
-    console.log = originalConsoleLog;
-    console.error = originalConsoleError;
 
     return clobClient;
 };
