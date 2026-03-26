@@ -1,5 +1,5 @@
 import * as dotenv from 'dotenv';
-import { CopyStrategy, CopyStrategyConfig, parseTieredMultipliers } from './copyStrategy';
+import { CopyStrategy, CopyStrategyConfig, parseTieredMultipliers, parseTraderConfigs, TraderConfig } from './copyStrategy';
 dotenv.config();
 
 /**
@@ -322,6 +322,20 @@ const parseCopyStrategy = (): CopyStrategyConfig => {
     return config;
 };
 
+// Parse per-trader configurations
+const parseTraderStrategyMap = (): Map<string, TraderConfig> => {
+    const traderConfigsStr = process.env.TRADER_CONFIGS || '';
+    try {
+        const configMap = parseTraderConfigs(traderConfigsStr);
+        if (configMap.size > 0) {
+            console.log(`✓ Loaded per-trader configs for ${configMap.size} trader(s)`);
+        }
+        return configMap;
+    } catch (error) {
+        throw new Error(`Failed to parse TRADER_CONFIGS: ${error instanceof Error ? error.message : String(error)}`);
+    }
+};
+
 export const ENV = {
     USER_ADDRESSES: parseUserAddresses(process.env.USER_ADDRESSES as string),
     PROXY_WALLET: process.env.PROXY_WALLET as string,
@@ -336,6 +350,8 @@ export const ENV = {
     COPY_PERCENTAGE: parseFloat(process.env.COPY_PERCENTAGE || '10.0'),
     // New copy strategy configuration
     COPY_STRATEGY_CONFIG: parseCopyStrategy(),
+    // Per-trader strategy configuration (overrides global config)
+    TRADER_STRATEGY_MAP: parseTraderStrategyMap(),
     // Network settings
     REQUEST_TIMEOUT_MS: parseInt(process.env.REQUEST_TIMEOUT_MS || '10000', 10),
     NETWORK_RETRY_LIMIT: parseInt(process.env.NETWORK_RETRY_LIMIT || '3', 10),

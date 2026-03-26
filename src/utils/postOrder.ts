@@ -3,10 +3,21 @@ import { ENV } from '../config/env';
 import { UserActivityInterface, UserPositionInterface } from '../interfaces/User';
 import { getUserActivityModel } from '../models/userHistory';
 import Logger from './logger';
-import { calculateOrderSize, getTradeMultiplier } from '../config/copyStrategy';
+import { calculateOrderSize, getTradeMultiplier, mergeTraderConfig, CopyStrategyConfig } from '../config/copyStrategy';
 
 const RETRY_LIMIT = ENV.RETRY_LIMIT;
 const COPY_STRATEGY_CONFIG = ENV.COPY_STRATEGY_CONFIG;
+const TRADER_STRATEGY_MAP = ENV.TRADER_STRATEGY_MAP;
+
+/**
+ * Get the copy strategy config for a specific trader
+ * Falls back to global config if no per-trader config exists
+ */
+const getTraderConfig = (traderAddress: string): CopyStrategyConfig => {
+    const normalizedAddress = traderAddress.toLowerCase();
+    const traderConfig = TRADER_STRATEGY_MAP.get(normalizedAddress);
+    return mergeTraderConfig(traderConfig, COPY_STRATEGY_CONFIG);
+};
 
 // Polymarket minimum order sizes
 const MIN_ORDER_SIZE_USD = 1.0; // Minimum order size in USD for BUY orders
@@ -164,18 +175,23 @@ const postOrder = async (
         //Buy strategy
         Logger.info('Executing BUY strategy...');
 
+        // Get per-trader config (falls back to global config)
+        const traderConfig = getTraderConfig(userAddress);
+
         Logger.info(`Your balance: $${my_balance.toFixed(2)}`);
         Logger.info(`Trader bought: $${trade.usdcSize.toFixed(2)}`);
+        Logger.info(`Strategy: ${traderConfig.strategy} (copySize: ${traderConfig.copySize})`);
 
         // Get current position size for position limit checks
         const currentPositionValue = my_position ? my_position.size * my_position.avgPrice : 0;
 
-        // Use new copy strategy system
+        // Use per-trader copy strategy config, passing user_balance for MIRROR_ALLOCATION
         const orderCalc = calculateOrderSize(
-            COPY_STRATEGY_CONFIG,
+            traderConfig,
             trade.usdcSize,
             my_balance,
-            currentPositionValue
+            currentPositionValue,
+            user_balance  // Trader's portfolio value for MIRROR_ALLOCATION
         );
 
         // Log the calculation reasoning
@@ -299,6 +315,10 @@ const postOrder = async (
     } else if (condition === 'sell') {
         //Sell strategy
         Logger.info('Executing SELL strategy...');
+
+        // Get per-trader config (falls back to global config)
+        const traderConfig = getTraderConfig(userAddress);
+
         let remaining = 0;
         if (!my_position) {
             Logger.warning('No position to sell');
@@ -359,7 +379,7 @@ const postOrder = async (
             }
 
             // Apply tiered or single multiplier based on trader's order size (symmetrical with BUY logic)
-            const multiplier = getTradeMultiplier(COPY_STRATEGY_CONFIG, trade.usdcSize);
+            const multiplier = getTradeMultiplier(traderConfig, trade.usdcSize);
             remaining = baseSellSize * multiplier;
 
             if (multiplier !== 1.0) {

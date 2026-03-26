@@ -49,13 +49,26 @@ function printRecommendations(result: any) {
         console.log(`${colors.red}${colors.bright}\n📋 Balance Issue:${colors.reset}`);
         console.log('   • Your wallet has no USDC to trade with');
         console.log('   • Bridge USDC to Polygon: https://wallet.polygon.technology/polygon/bridge/deposit');
-        console.log('   • Or buy USDC on an exchange and withdraw to Polygon network');
-        console.log('   • Also get POL (MATIC) for gas fees (~$5-10 worth)\n');
+        console.log('   • Or buy USDC on an exchange and withdraw to Polygon network\n');
     } else if (result.checks.balance.status === 'warning') {
         console.log(`${colors.yellow}${colors.bright}\n⚠️  Low Balance Warning:${colors.reset}`);
         console.log(`   • Balance: $${result.checks.balance.balance?.toFixed(2) || '0.00'}`);
         console.log('   • Consider adding more USDC to avoid missing trades');
         console.log('   • Recommended minimum: $50-100 for active trading\n');
+    }
+
+    if (result.checks.gas.status === 'error') {
+        issues.push('❌ No POL for Gas Fees');
+        console.log(`${colors.red}${colors.bright}\n📋 Gas (POL) Issue:${colors.reset}`);
+        console.log('   • Your wallet has no POL (MATIC) for transaction fees');
+        console.log('   • Get POL from an exchange and withdraw to Polygon network');
+        console.log('   • Or bridge POL: https://wallet.polygon.technology/polygon/bridge/deposit');
+        console.log('   • Recommended: ~1-2 POL (~$1-2 worth) for basic operations\n');
+    } else if (result.checks.gas.status === 'warning') {
+        console.log(`${colors.yellow}${colors.bright}\n⚠️  Low POL Warning:${colors.reset}`);
+        console.log(`   • POL Balance: ${result.checks.gas.balance?.toFixed(4) || '0.0000'} POL`);
+        console.log('   • Consider adding more POL to avoid transaction failures');
+        console.log('   • Recommended: ~1-2 POL for reliable operation\n');
     }
 
     if (result.checks.polymarketApi.status === 'error') {

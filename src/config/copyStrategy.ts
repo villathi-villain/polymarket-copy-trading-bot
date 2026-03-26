@@ -12,6 +12,8 @@ export enum CopyStrategy {
     PERCENTAGE = 'PERCENTAGE',
     FIXED = 'FIXED',
     ADAPTIVE = 'ADAPTIVE',
+    BALANCE_PERCENTAGE = 'BALANCE_PERCENTAGE',  // Use X% of YOUR balance per trade
+    MIRROR_ALLOCATION = 'MIRROR_ALLOCATION',    // Mirror trader's portfolio allocation %
 }
 
 /**
@@ -64,19 +66,29 @@ export interface OrderSizeCalculation {
     reducedByBalance: boolean; // Whether reduced due to balance
     belowMinimum: boolean; // Whether below minimum threshold
     reasoning: string; // Human-readable explanation
+    traderPortfolioValue?: number; // Trader's total portfolio value (for MIRROR_ALLOCATION)
+    traderAllocationPercent?: number; // % of trader's portfolio this trade represents
 }
 
 /**
  * Calculate order size based on copy strategy
+ *
+ * @param config - Copy strategy configuration
+ * @param traderOrderSize - The trader's order size in USD
+ * @param availableBalance - Your available balance in USD
+ * @param currentPositionSize - Current position size for position limit checks
+ * @param traderPortfolioValue - Trader's total portfolio value (required for MIRROR_ALLOCATION)
  */
 export function calculateOrderSize(
     config: CopyStrategyConfig,
     traderOrderSize: number,
     availableBalance: number,
-    currentPositionSize: number = 0
+    currentPositionSize: number = 0,
+    traderPortfolioValue?: number
 ): OrderSizeCalculation {
     let baseAmount: number;
     let reasoning: string;
+    let traderAllocationPercent: number | undefined;
 
     // Step 1: Calculate base amount based on strategy
     switch (config.strategy) {
@@ -94,6 +106,28 @@ export function calculateOrderSize(
             const adaptivePercent = calculateAdaptivePercent(config, traderOrderSize);
             baseAmount = traderOrderSize * (adaptivePercent / 100);
             reasoning = `Adaptive ${adaptivePercent.toFixed(1)}% of trader's $${traderOrderSize.toFixed(2)} = $${baseAmount.toFixed(2)}`;
+            break;
+
+        case CopyStrategy.BALANCE_PERCENTAGE:
+            // Use X% of YOUR balance per trade
+            baseAmount = availableBalance * (config.copySize / 100);
+            reasoning = `${config.copySize}% of your balance ($${availableBalance.toFixed(2)}) = $${baseAmount.toFixed(2)}`;
+            break;
+
+        case CopyStrategy.MIRROR_ALLOCATION:
+            // Mirror the trader's allocation % of their portfolio
+            if (!traderPortfolioValue || traderPortfolioValue <= 0) {
+                // Fallback to PERCENTAGE if trader portfolio value not available
+                baseAmount = traderOrderSize * (config.copySize / 100);
+                reasoning = `Mirror fallback (no portfolio data): ${config.copySize}% of trader's $${traderOrderSize.toFixed(2)} = $${baseAmount.toFixed(2)}`;
+            } else {
+                // Calculate what % of their portfolio the trader is spending
+                traderAllocationPercent = (traderOrderSize / traderPortfolioValue) * 100;
+                // Apply that same % to your balance, scaled by copySize (100 = exact match)
+                const scaleFactor = config.copySize / 100;
+                baseAmount = availableBalance * (traderAllocationPercent / 100) * scaleFactor;
+                reasoning = `Mirror: Trader spending ${traderAllocationPercent.toFixed(2)}% of $${traderPortfolioValue.toFixed(2)} → ${(traderAllocationPercent * scaleFactor).toFixed(2)}% of your $${availableBalance.toFixed(2)} = $${baseAmount.toFixed(2)}`;
+            }
             break;
 
         default:
@@ -157,6 +191,8 @@ export function calculateOrderSize(
         reducedByBalance,
         belowMinimum,
         reasoning,
+        traderPortfolioValue,
+        traderAllocationPercent,
     };
 }
 
@@ -382,4 +418,121 @@ export function getTradeMultiplier(config: CopyStrategyConfig, traderOrderSize: 
 
     // Default: no multiplier
     return 1.0;
+}
+
+/**
+ * Per-trader configuration interface
+ * Used to override global settings for specific traders
+ */
+export interface TraderConfig {
+    address: string;              // Trader's Ethereum address (lowercase)
+    strategy?: CopyStrategy;      // Override strategy for this trader
+    copySize?: number;            // Override copy size for this trader
+    maxOrderSizeUSD?: number;     // Override max order size for this trader
+    minOrderSizeUSD?: number;     // Override min order size for this trader
+    maxPositionSizeUSD?: number;  // Override max position size for this trader
+    maxDailyVolumeUSD?: number;   // Override max daily volume for this trader
+    tieredMultipliers?: MultiplierTier[]; // Override tiered multipliers for this trader
+    tradeMultiplier?: number;     // Override single trade multiplier for this trader
+    // Adaptive parameters
+    adaptiveMinPercent?: number;
+    adaptiveMaxPercent?: number;
+    adaptiveThreshold?: number;
+}
+
+/**
+ * Parse per-trader configurations from JSON string
+ *
+ * @param traderConfigsStr - JSON string containing array of TraderConfig objects
+ * @returns Map of lowercase address -> TraderConfig
+ * @throws Error if JSON is invalid or addresses are malformed
+ */
+export function parseTraderConfigs(traderConfigsStr: string): Map<string, TraderConfig> {
+    const configMap = new Map<string, TraderConfig>();
+
+    if (!traderConfigsStr || traderConfigsStr.trim() === '') {
+        return configMap;
+    }
+
+    let configs: TraderConfig[];
+    try {
+        configs = JSON.parse(traderConfigsStr);
+    } catch (e) {
+        throw new Error(
+            `Invalid TRADER_CONFIGS JSON: ${e instanceof Error ? e.message : String(e)}`
+        );
+    }
+
+    if (!Array.isArray(configs)) {
+        throw new Error('TRADER_CONFIGS must be a JSON array');
+    }
+
+    for (const config of configs) {
+        if (!config.address) {
+            throw new Error('Each trader config must have an "address" field');
+        }
+
+        // Validate and normalize address
+        const address = config.address.toLowerCase();
+        if (!/^0x[a-f0-9]{40}$/.test(address)) {
+            throw new Error(`Invalid Ethereum address in TRADER_CONFIGS: ${config.address}`);
+        }
+
+        // Validate strategy if provided
+        if (config.strategy) {
+            const strategyStr = config.strategy.toUpperCase();
+            if (!Object.values(CopyStrategy).includes(strategyStr as CopyStrategy)) {
+                throw new Error(
+                    `Invalid strategy "${config.strategy}" for trader ${address}. Valid strategies: ${Object.values(CopyStrategy).join(', ')}`
+                );
+            }
+            config.strategy = strategyStr as CopyStrategy;
+        }
+
+        // Validate numeric fields
+        if (config.copySize !== undefined && config.copySize <= 0) {
+            throw new Error(`copySize must be positive for trader ${address}`);
+        }
+        if (config.maxOrderSizeUSD !== undefined && config.maxOrderSizeUSD <= 0) {
+            throw new Error(`maxOrderSizeUSD must be positive for trader ${address}`);
+        }
+        if (config.minOrderSizeUSD !== undefined && config.minOrderSizeUSD <= 0) {
+            throw new Error(`minOrderSizeUSD must be positive for trader ${address}`);
+        }
+
+        configMap.set(address, { ...config, address });
+    }
+
+    return configMap;
+}
+
+/**
+ * Merge trader-specific config with global config
+ * Trader-specific values override global values
+ *
+ * @param traderConfig - Per-trader configuration (partial)
+ * @param globalConfig - Global default configuration
+ * @returns Complete CopyStrategyConfig for this trader
+ */
+export function mergeTraderConfig(
+    traderConfig: TraderConfig | undefined,
+    globalConfig: CopyStrategyConfig
+): CopyStrategyConfig {
+    if (!traderConfig) {
+        return globalConfig;
+    }
+
+    return {
+        strategy: traderConfig.strategy ?? globalConfig.strategy,
+        copySize: traderConfig.copySize ?? globalConfig.copySize,
+        maxOrderSizeUSD: traderConfig.maxOrderSizeUSD ?? globalConfig.maxOrderSizeUSD,
+        minOrderSizeUSD: traderConfig.minOrderSizeUSD ?? globalConfig.minOrderSizeUSD,
+        maxPositionSizeUSD: traderConfig.maxPositionSizeUSD ?? globalConfig.maxPositionSizeUSD,
+        maxDailyVolumeUSD: traderConfig.maxDailyVolumeUSD ?? globalConfig.maxDailyVolumeUSD,
+        tieredMultipliers: traderConfig.tieredMultipliers ?? globalConfig.tieredMultipliers,
+        tradeMultiplier: traderConfig.tradeMultiplier ?? globalConfig.tradeMultiplier,
+        adaptiveMinPercent: traderConfig.adaptiveMinPercent ?? globalConfig.adaptiveMinPercent,
+        adaptiveMaxPercent: traderConfig.adaptiveMaxPercent ?? globalConfig.adaptiveMaxPercent,
+        adaptiveThreshold: traderConfig.adaptiveThreshold ?? globalConfig.adaptiveThreshold,
+    };
 }

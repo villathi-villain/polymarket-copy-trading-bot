@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { ethers } from 'ethers';
 import { ENV } from '../config/env';
 import getMyBalance from './getMyBalance';
 import fetchData from './fetchData';
@@ -10,6 +11,7 @@ export interface HealthCheckResult {
         database: { status: 'ok' | 'error'; message: string };
         rpc: { status: 'ok' | 'error'; message: string };
         balance: { status: 'ok' | 'error' | 'warning'; message: string; balance?: number };
+        gas: { status: 'ok' | 'error' | 'warning'; message: string; balance?: number };
         polymarketApi: { status: 'ok' | 'error'; message: string };
     };
     timestamp: number;
@@ -18,11 +20,21 @@ export interface HealthCheckResult {
 /**
  * Perform health check on all critical components
  */
+/**
+ * Get POL (MATIC) balance for gas fees
+ */
+const getPolBalance = async (address: string): Promise<number> => {
+    const provider = new ethers.providers.JsonRpcProvider(ENV.RPC_URL);
+    const balance = await provider.getBalance(address);
+    return parseFloat(ethers.utils.formatEther(balance));
+};
+
 export const performHealthCheck = async (): Promise<HealthCheckResult> => {
     const checks: HealthCheckResult['checks'] = {
         database: { status: 'error', message: 'Not checked' },
         rpc: { status: 'error', message: 'Not checked' },
         balance: { status: 'error', message: 'Not checked' },
+        gas: { status: 'error', message: 'Not checked' },
         polymarketApi: { status: 'error', message: 'Not checked' },
     };
 
@@ -107,6 +119,33 @@ export const performHealthCheck = async (): Promise<HealthCheckResult> => {
         };
     }
 
+    // Check POL (MATIC) balance for gas fees
+    try {
+        const polBalance = await getPolBalance(ENV.PROXY_WALLET);
+        if (polBalance > 0) {
+            if (polBalance < 0.5) {
+                checks.gas = {
+                    status: 'warning',
+                    message: `Low POL: ${polBalance.toFixed(4)} POL`,
+                    balance: polBalance,
+                };
+            } else {
+                checks.gas = {
+                    status: 'ok',
+                    message: `POL Balance: ${polBalance.toFixed(4)} POL`,
+                    balance: polBalance,
+                };
+            }
+        } else {
+            checks.gas = { status: 'error', message: 'No POL for gas fees' };
+        }
+    } catch (error) {
+        checks.gas = {
+            status: 'error',
+            message: `POL check failed: ${error instanceof Error ? error.message : String(error)}`,
+        };
+    }
+
     // Check Polymarket API
     try {
         const testUrl =
@@ -125,6 +164,7 @@ export const performHealthCheck = async (): Promise<HealthCheckResult> => {
         checks.database.status === 'ok' &&
         checks.rpc.status === 'ok' &&
         checks.balance.status !== 'error' &&
+        checks.gas.status !== 'error' &&
         checks.polymarketApi.status === 'ok';
 
     return {
@@ -149,6 +189,9 @@ export const logHealthCheck = (result: HealthCheckResult): void => {
     );
     Logger.info(
         `Balance: ${result.checks.balance.status === 'ok' ? '✅' : result.checks.balance.status === 'warning' ? '⚠️' : '❌'} ${result.checks.balance.message}`
+    );
+    Logger.info(
+        `Gas (POL): ${result.checks.gas.status === 'ok' ? '✅' : result.checks.gas.status === 'warning' ? '⚠️' : '❌'} ${result.checks.gas.message}`
     );
     Logger.info(
         `Polymarket API: ${result.checks.polymarketApi.status === 'ok' ? '✅' : '❌'} ${result.checks.polymarketApi.message}`
